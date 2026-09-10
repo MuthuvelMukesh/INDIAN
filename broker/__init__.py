@@ -1,0 +1,1 @@
+"""Broker interfaces and paper-only execution."""
