@@ -3,12 +3,23 @@
 from dataclasses import dataclass
 from math import isfinite, sqrt
 from statistics import mean, pstdev
-from datetime import datetime
+from datetime import datetime, time, timedelta
 from typing import Iterable
+from zoneinfo import ZoneInfo
 
 from data.models import Candle
 from strategies.base import Action, PortfolioContext, Signal, Strategy
 from risk.manager import RiskManager
+
+
+# NSE regular equity hours are 09:15-15:30 IST: 375 minutes / 5 = 75 bars.
+# Using the existing 252-session daily convention gives 75 * 252 = 18,900.
+NSE_5MIN_PERIODS_PER_YEAR = 18_900
+SCALPING_BROKERAGE_PER_ORDER = 20.0
+SCALPING_SLIPPAGE_BPS = 10.0
+IST = ZoneInfo("Asia/Kolkata")
+NSE_OPEN = time(9, 15)
+NSE_CLOSE = time(15, 30)
 
 
 @dataclass(frozen=True, slots=True)
@@ -60,18 +71,62 @@ class BacktestEngine:
         brokerage_per_order: float = 20,
         slippage_bps: float = 5,
         risk_manager: RiskManager | None = None,
+        periods_per_year: int = 252,
+        bar_minutes: int | None = None,
     ) -> None:
         """Configure the strategy and conservative per-fill cost assumptions."""
-        values = (starting_capital, brokerage_per_order, slippage_bps)
+        values = (starting_capital, brokerage_per_order, slippage_bps, periods_per_year)
         if not all(isfinite(value) for value in values):
             raise ValueError("backtest costs and capital must be finite")
-        if starting_capital <= 0 or brokerage_per_order < 0 or slippage_bps < 0:
+        if (
+            starting_capital <= 0
+            or brokerage_per_order < 0
+            or slippage_bps < 0
+            or type(periods_per_year) is not int
+            or periods_per_year < 1
+            or (bar_minutes is not None and (type(bar_minutes) is not int or bar_minutes < 1))
+        ):
             raise ValueError("capital must be positive and costs must be non-negative")
         self.strategy = strategy
         self.starting_capital = starting_capital
         self.brokerage_per_order = brokerage_per_order
         self.slippage_bps = slippage_bps
         self.risk_manager = risk_manager
+        self.periods_per_year = periods_per_year
+        self.bar_minutes = bar_minutes
+
+    @classmethod
+    def for_interval(
+        cls,
+        strategy: Strategy,
+        interval: str,
+        starting_capital: float = 100_000,
+        risk_manager: RiskManager | None = None,
+    ) -> "BacktestEngine":
+        """Build a daily or five-minute engine with an explicit cost preset.
+
+        Five-minute candles use a conservative 10 bps per-side slippage
+        assumption because historical OHLCV data has no bid/ask spread. The
+        brokerage value is the current flat per-order planning assumption;
+        statutory and exchange charges are outside this simulation boundary.
+        """
+        if interval in {"1d", "day"}:
+            return cls(
+                strategy,
+                starting_capital=starting_capital,
+                risk_manager=risk_manager,
+            )
+        if interval == "5minute":
+            return cls(
+                strategy,
+                starting_capital=starting_capital,
+                brokerage_per_order=SCALPING_BROKERAGE_PER_ORDER,
+                slippage_bps=SCALPING_SLIPPAGE_BPS,
+                periods_per_year=NSE_5MIN_PERIODS_PER_YEAR,
+                bar_minutes=5,
+                risk_manager=risk_manager,
+            )
+        raise ValueError("no cost preset exists for this interval")
 
     def run(self, instrument_key: str, candles: Iterable[Candle]) -> BacktestResult:
         """Simulate signals chronologically and return an immutable report."""
@@ -92,7 +147,7 @@ class BacktestEngine:
         pending: tuple[Signal, ...] = ()
         active_session: str | None = None
         for candle in sorted(candles, key=lambda item: item.timestamp):
-            session_key = candle.timestamp.date().isoformat()
+            session_key = candle.timestamp.astimezone(IST).date().isoformat()
             current_equity = cash + positions.get(instrument_key, 0) * candle.open
             if self.risk_manager is not None and session_key != active_session:
                 self.risk_manager.start_day(current_equity, session_key)
@@ -132,7 +187,9 @@ class BacktestEngine:
             equity_curve=tuple(equity_curve),
             win_rate=self._win_rate(trades),
             max_drawdown=self._max_drawdown(equities),
-            sharpe_ratio=self._sharpe_ratio(equities),
+            sharpe_ratio=self._sharpe_ratio(
+                equity_curve, self.periods_per_year, self.bar_minutes
+            ),
         )
 
     def _execute(
@@ -205,8 +262,25 @@ class BacktestEngine:
         return max(drawdowns)
 
     @staticmethod
-    def _sharpe_ratio(equities: list[float]) -> float:
-        """Annualize daily zero-risk-free returns, returning zero when undefined."""
-        returns = [current / previous - 1 for previous, current in zip(equities, equities[1:])]
+    def _sharpe_ratio(
+        equity_curve: list[EquityPoint], periods_per_year: int, bar_minutes: int | None
+    ) -> float:
+        """Annualize zero-risk-free returns for the candle frequency."""
+        returns = []
+        for previous, current in zip(equity_curve, equity_curve[1:]):
+            elapsed = current.timestamp - previous.timestamp
+            if bar_minutes is not None and (
+                elapsed != timedelta(minutes=bar_minutes)
+                or not _is_regular_session_timestamp(previous.timestamp)
+                or not _is_regular_session_timestamp(current.timestamp)
+            ):
+                continue
+            returns.append(current.equity / previous.equity - 1)
         deviation = pstdev(returns) if len(returns) > 1 else 0
-        return sqrt(252) * mean(returns) / deviation if deviation else 0.0
+        return sqrt(periods_per_year) * mean(returns) / deviation if deviation else 0.0
+
+
+def _is_regular_session_timestamp(timestamp: datetime) -> bool:
+    """Return whether a timestamp falls within regular NSE equity hours."""
+    local_time = timestamp.astimezone(IST).time()
+    return NSE_OPEN <= local_time < NSE_CLOSE

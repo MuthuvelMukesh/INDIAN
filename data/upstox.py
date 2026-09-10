@@ -34,9 +34,10 @@ class UpstoxCandleProvider:
 
     def fetch_candles(self, query: HistoricalQuery) -> list[Candle]:
         """Fetch and validate daily historical candles for one instrument and range."""
+        wire_interval = "day" if query.interval == "1d" else query.interval
         path = (
             f"/v2/historical-candle/{quote(query.instrument_key, safe='')}/"
-            f"{query.interval}/{query.to_date.isoformat()}/{query.from_date.isoformat()}"
+            f"{wire_interval}/{query.to_date.isoformat()}/{query.from_date.isoformat()}"
         )
         response = self._client.get(path)
         if response.is_error:

@@ -1,8 +1,9 @@
 # Indian Market Algo Bot
 
 This project is a local, zero-cost NSE market-data foundation for paper trading
-and backtesting. Phase 1 is read-only: it fetches daily historical candles from
-Upstox and caches them in SQLite. It cannot place live orders.
+and backtesting. It fetches read-only historical candles from Upstox, supports
+daily and intraday query intervals, and caches data in SQLite. It cannot place
+live orders.
 
 ## Requirements
 
@@ -47,16 +48,25 @@ pytest
 ```
 
 The implemented slices currently include the read-only data layer, strategy
-contract, SMA crossover and RSI mean-reversion strategies, backtest engine,
-risk controls, and paper broker. Paper-trading orchestration, SQLite trade
-history, and the CLI are the next incremental phase.
+contract, SMA crossover, RSI mean-reversion, VWAP reversion, ORB, and Bollinger
+strategies, backtest engine, risk controls, and paper broker. Paper-trading
+orchestration, SQLite trade history, and the CLI are the next incremental phase.
 
-## Phase 1 data-layer contract
+## Data and intraday contracts
 
 `HistoricalQuery` identifies an exchange-qualified Upstox instrument key, date
-range, and daily interval. `MarketDataService` checks SQLite first, calls the
+range, and a strict supported interval: `1d`, `1minute`, `5minute`,
+`30minute`, `day`, `week`, or `month`. Legacy `1d` requests are sent to the
+Upstox v2 endpoint as `day`. `MarketDataService` checks SQLite first, calls the
 read-only Upstox provider on a cache miss, validates and sorts candles, then
 caches the result.
+
+For backtests, `BacktestEngine.for_interval("5minute")` selects the explicit
+scalping planning assumptions and 18,900 annual periods. It uses 10 bps
+slippage per side because historical OHLCV does not include bid/ask spread.
+VWAP and ORB evaluate only regular NSE hours, 09:15-15:30 IST. Intraday Sharpe
+sampling excludes overnight gaps rather than treating them as five-minute
+returns.
 
 The suite also covers strategy contracts, next-candle-open backtest execution,
 performance metrics, risk circuit breakers, and paper-broker accounting:

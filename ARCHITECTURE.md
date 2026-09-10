@@ -14,6 +14,9 @@ data/service.py    cache-first orchestration
 strategies/base.py common signal and portfolio-context contract
 strategies/sma_crossover.py
 strategies/rsi_reversion.py
+strategies/vwap_reversion.py session VWAP with IST reset
+strategies/orb.py            09:15 IST opening-range breakout
+strategies/bollinger.py      squeeze and momentum breakout
 engine/backtest.py next-candle-open historical simulation
 risk/manager.py    position and daily-loss controls
 broker/base.py     order and fill contracts
@@ -42,8 +45,19 @@ configurable slippage and brokerage. This avoids using a candle close to trade
 on information the strategy only learned at that close. A strategy instance is
 reset before each independent run.
 
+`BacktestEngine.for_interval("5minute")` makes scalping assumptions explicit:
+₹20 planning brokerage per order, 10 bps slippage per side because OHLCV has no
+bid/ask spread, and 18,900 annual periods from 75 five-minute bars per NSE
+session across 252 sessions. These are configurable planning assumptions, not
+an assertion that every account pays the same final all-in charge.
+
 `RiskManager` is optional at the engine boundary. It can reject new risk while
 allowing position-reducing exits, and it does not execute or mutate orders.
+
+Intraday strategies use `Asia/Kolkata` session boundaries. VWAP and ORB ignore
+pre-open and post-close candles; the backtest risk session also uses the IST
+calendar date. Five-minute Sharpe excludes transitions that are not exactly
+five minutes apart, including overnight gaps.
 
 To add a strategy, implement the common strategy contract and register its name
 in configuration. To add a broker later, implement the broker interface and

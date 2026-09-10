@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from math import isfinite
+from typing import ClassVar
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,11 +47,15 @@ class HistoricalQuery:
     to_date: date
     interval: str = "1d"
 
+    SUPPORTED_INTERVALS: ClassVar[frozenset[str]] = frozenset(
+        {"1d", "1minute", "5minute", "30minute", "day", "week", "month"}
+    )
+
     def __post_init__(self) -> None:
         """Validate the query before it reaches a provider or database."""
         if not self.instrument_key or "|" not in self.instrument_key:
             raise ValueError("instrument_key must contain an exchange-qualified key")
-        if self.interval != "1d":
-            raise ValueError("only the daily interval (1d) is supported in phase 1")
+        if self.interval not in self.SUPPORTED_INTERVALS:
+            raise ValueError(f"unsupported interval: {self.interval}")
         if self.from_date > self.to_date:
             raise ValueError("from_date must be on or before to_date")

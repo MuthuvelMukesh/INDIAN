@@ -10,6 +10,7 @@ from data.upstox import UpstoxApiError, UpstoxCandleProvider
 def test_upstox_provider_maps_historical_candles() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.headers["Authorization"] == "Bearer test-token"
+        assert request.url.path.endswith("/day/2024-01-02/2024-01-01")
         return httpx.Response(
             200,
             json={
@@ -31,6 +32,24 @@ def test_upstox_provider_maps_historical_candles() -> None:
 
     assert candles[0].close == 105.0
     assert candles[0].timestamp.isoformat() == "2024-01-01T18:30:00+00:00"
+
+
+def test_upstox_provider_passes_intraday_interval() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path.endswith("/5minute/2024-01-02/2024-01-01")
+        return httpx.Response(200, json={"data": {"candles": []}})
+
+    provider = UpstoxCandleProvider(
+        access_token="test-token", transport=httpx.MockTransport(handler)
+    )
+    query = HistoricalQuery(
+        "NSE_EQ|ONE",
+        date(2024, 1, 1),
+        date(2024, 1, 2),
+        interval="5minute",
+    )
+
+    assert provider.fetch_candles(query) == []
 
 
 def test_upstox_provider_raises_typed_error() -> None:

@@ -33,3 +33,24 @@ def test_candle_rejects_invalid_ohlc_relationship() -> None:
 def test_query_rejects_reversed_dates() -> None:
     with pytest.raises(ValueError, match="from_date must be"):
         HistoricalQuery("NSE_EQ|INE002A01018", date(2024, 2, 1), date(2024, 1, 1))
+
+
+def test_query_accepts_five_minute_interval() -> None:
+    query = HistoricalQuery(
+        "NSE_EQ|INE002A01018",
+        date(2024, 1, 1),
+        date(2024, 1, 2),
+        interval="5minute",
+    )
+
+    assert query.interval == "5minute"
+
+
+def test_query_rejects_unsupported_interval() -> None:
+    with pytest.raises(ValueError, match="supported interval"):
+        HistoricalQuery(
+            "NSE_EQ|INE002A01018",
+            date(2024, 1, 1),
+            date(2024, 1, 2),
+            interval="7minute",
+        )

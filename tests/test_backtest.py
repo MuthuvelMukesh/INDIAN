@@ -1,9 +1,15 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
 from data.models import Candle
-from engine.backtest import BacktestEngine
+from engine.backtest import (
+    NSE_5MIN_PERIODS_PER_YEAR,
+    SCALPING_BROKERAGE_PER_ORDER,
+    SCALPING_SLIPPAGE_BPS,
+    BacktestEngine,
+    EquityPoint,
+)
 from strategies.base import Action, PortfolioContext, Signal, Strategy
 
 
@@ -61,3 +67,47 @@ def test_backtest_reports_drawdown_and_win_rate() -> None:
     assert result.win_rate == 1.0
     assert result.max_drawdown == pytest.approx(0.002045)
     assert len(result.equity_curve) == 3
+
+
+def test_sharpe_annualization_scales_with_periods_per_year() -> None:
+    candles = [
+        make_candle(100, 1),
+        make_candle(90, 2),
+        make_candle(110, 3),
+        make_candle(105, 4),
+    ]
+    daily = BacktestEngine(
+        BuyThenSell(), starting_capital=10_000, periods_per_year=252
+    ).run("NSE_EQ|TEST", candles)
+    intraday = BacktestEngine(
+        BuyThenSell(), starting_capital=10_000, periods_per_year=18_900
+    ).run("NSE_EQ|TEST", candles)
+
+    assert intraday.sharpe_ratio / daily.sharpe_ratio == pytest.approx(
+        (18_900 / 252) ** 0.5
+    )
+
+
+def test_five_minute_preset_is_explicit() -> None:
+    engine = BacktestEngine.for_interval(BuyThenSell(), "5minute")
+
+    assert engine.periods_per_year == NSE_5MIN_PERIODS_PER_YEAR
+    assert engine.brokerage_per_order == SCALPING_BROKERAGE_PER_ORDER
+    assert engine.slippage_bps == SCALPING_SLIPPAGE_BPS
+
+
+def test_intraday_sharpe_excludes_off_session_returns() -> None:
+    strategy = BuyThenSell()
+    engine = BacktestEngine(
+        strategy,
+        periods_per_year=18_900,
+        bar_minutes=5,
+    )
+    regular = datetime(2024, 1, 1, 3, 45, tzinfo=timezone.utc)
+    off_session = regular - timedelta(minutes=5)
+    equity_curve = [
+        EquityPoint(off_session, 100.0),
+        EquityPoint(regular, 101.0),
+    ]
+
+    assert engine._sharpe_ratio(equity_curve, 18_900, 5) == 0.0
