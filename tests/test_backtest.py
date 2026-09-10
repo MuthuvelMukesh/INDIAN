@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -16,7 +16,7 @@ from strategies.base import Action, PortfolioContext, Signal, Strategy
 def make_candle(close: float, day: int, open_price: float | None = None) -> Candle:
     open_price = close if open_price is None else open_price
     return Candle(
-        timestamp=datetime(2024, 1, day, tzinfo=timezone.utc),
+        timestamp=datetime(2024, 1, day, tzinfo=UTC),
         open=open_price,
         high=close,
         low=close,
@@ -47,8 +47,8 @@ def test_backtest_applies_slippage_and_brokerage_to_pnl() -> None:
         brokerage_per_order=20,
         slippage_bps=100,
     ).run(
-    "NSE_EQ|TEST",
-    [make_candle(100, 1), make_candle(110, 2), make_candle(120, 3)],
+        "NSE_EQ|TEST",
+        [make_candle(100, 1), make_candle(110, 2), make_candle(120, 3)],
     )
 
     assert result.trades[0].price == 111.1
@@ -103,7 +103,7 @@ def test_intraday_sharpe_excludes_off_session_returns() -> None:
         periods_per_year=18_900,
         bar_minutes=5,
     )
-    regular = datetime(2024, 1, 1, 3, 45, tzinfo=timezone.utc)
+    regular = datetime(2024, 1, 1, 3, 45, tzinfo=UTC)
     off_session = regular - timedelta(minutes=5)
     equity_curve = [
         EquityPoint(off_session, 100.0),

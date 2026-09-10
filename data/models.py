@@ -1,7 +1,7 @@
 """Immutable domain objects used by the market-data layer."""
 
 from dataclasses import dataclass
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from math import isfinite
 from typing import ClassVar
 
@@ -22,7 +22,7 @@ class Candle:
         """Validate the market data invariants required by downstream engines."""
         if self.timestamp.tzinfo is None or self.timestamp.utcoffset() is None:
             raise ValueError("timestamp must be timezone-aware")
-        normalized_timestamp = self.timestamp.astimezone(timezone.utc)
+        normalized_timestamp = self.timestamp.astimezone(UTC)
         object.__setattr__(self, "timestamp", normalized_timestamp)
 
         prices = (self.open, self.high, self.low, self.close)

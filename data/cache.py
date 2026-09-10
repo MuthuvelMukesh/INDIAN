@@ -2,7 +2,7 @@
 
 import sqlite3
 from collections.abc import Sequence
-from datetime import datetime, timezone
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 from data.models import Candle, HistoricalQuery
@@ -59,7 +59,12 @@ class SQLiteCandleCache:
                 WHERE instrument_key = ? AND interval = ?
                   AND from_date = ? AND to_date = ?
                 """,
-                (query.instrument_key, query.interval, query.from_date.isoformat(), query.to_date.isoformat()),
+                (
+                    query.instrument_key,
+                    query.interval,
+                    query.from_date.isoformat(),
+                    query.to_date.isoformat(),
+                ),
             ).fetchone()
             if range_row is None:
                 return None
@@ -107,7 +112,7 @@ class SQLiteCandleCache:
                     (
                         query.instrument_key,
                         query.interval,
-                        candle.timestamp.astimezone(timezone.utc).isoformat(),
+                        candle.timestamp.astimezone(UTC).isoformat(),
                         candle.open,
                         candle.high,
                         candle.low,
@@ -124,13 +129,18 @@ class SQLiteCandleCache:
                     (instrument_key, interval, from_date, to_date)
                 VALUES (?, ?, ?, ?)
                 """,
-                (query.instrument_key, query.interval, query.from_date.isoformat(), query.to_date.isoformat()),
+                (
+                    query.instrument_key,
+                    query.interval,
+                    query.from_date.isoformat(),
+                    query.to_date.isoformat(),
+                ),
             )
 
 
-def _date_start(value, inclusive_end: bool = False) -> str:
+def _date_start(value: date, inclusive_end: bool = False) -> str:
     """Return an ISO UTC boundary for SQLite's lexicographic timestamp query."""
     from datetime import datetime, time, timedelta
 
     boundary_date = value + timedelta(days=1) if inclusive_end else value
-    return datetime.combine(boundary_date, time.min, tzinfo=timezone.utc).isoformat()
+    return datetime.combine(boundary_date, time.min, tzinfo=UTC).isoformat()

@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from data.models import Candle
 from strategies.base import Action, PortfolioContext, Signal
@@ -6,7 +6,7 @@ from strategies.orb import OpeningRangeBreakoutStrategy
 
 
 def candle(hour: int, minute: int, close: float, high: float, low: float) -> Candle:
-    timestamp = datetime(2024, 1, 1, hour, minute, tzinfo=timezone.utc)
+    timestamp = datetime(2024, 1, 1, hour, minute, tzinfo=UTC)
     return Candle(timestamp, close, high, low, close, 100)
 
 
@@ -35,7 +35,7 @@ def test_orb_resets_range_on_new_session() -> None:
     ]
 
     next_day = Candle(
-        datetime(2024, 1, 2, 3, 45, tzinfo=timezone.utc),
+        datetime(2024, 1, 2, 3, 45, tzinfo=UTC),
         100,
         101,
         99,

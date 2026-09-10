@@ -1,4 +1,4 @@
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 
 import pytest
 
@@ -7,7 +7,7 @@ from data.models import Candle, HistoricalQuery
 
 def test_candle_requires_utc_aware_timestamp() -> None:
     candle = Candle(
-        timestamp=datetime(2024, 1, 2, tzinfo=timezone.utc),
+        timestamp=datetime(2024, 1, 2, tzinfo=UTC),
         open=100.0,
         high=110.0,
         low=95.0,
@@ -15,13 +15,13 @@ def test_candle_requires_utc_aware_timestamp() -> None:
         volume=1000,
     )
 
-    assert candle.timestamp.tzinfo == timezone.utc
+    assert candle.timestamp.tzinfo == UTC
 
 
 def test_candle_rejects_invalid_ohlc_relationship() -> None:
     with pytest.raises(ValueError, match="high must be"):
         Candle(
-            timestamp=datetime(2024, 1, 2, tzinfo=timezone.utc),
+            timestamp=datetime(2024, 1, 2, tzinfo=UTC),
             open=100.0,
             high=90.0,
             low=95.0,

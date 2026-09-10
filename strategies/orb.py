@@ -6,7 +6,6 @@ from zoneinfo import ZoneInfo
 from data.models import Candle
 from strategies.base import Action, PortfolioContext, Signal, Strategy
 
-
 IST = ZoneInfo("Asia/Kolkata")
 NSE_OPEN = time(9, 15)
 NSE_CLOSE = time(15, 30)
@@ -58,12 +57,25 @@ class OpeningRangeBreakoutStrategy(Strategy):
             self._range_high = max(self._range_high or candle.high, candle.high)
             self._range_low = min(self._range_low or candle.low, candle.low)
             return []
-        if local_timestamp < range_end or self._range_high is None or self._range_low is None:
+        if (
+            local_timestamp < range_end
+            or self._range_high is None
+            or self._range_low is None
+        ):
             return []
 
         held = context.positions.get(self.instrument_key, 0)
         if candle.close > self._range_high and held == 0:
-            return [Signal(Action.BUY, self.quantity, "ORB upside breakout", self.instrument_key)]
+            return [
+                Signal(
+                    Action.BUY,
+                    self.quantity,
+                    "ORB upside breakout",
+                    self.instrument_key,
+                )
+            ]
         if candle.close < self._range_low and held > 0:
-            return [Signal(Action.SELL, held, "ORB downside breakout", self.instrument_key)]
+            return [
+                Signal(Action.SELL, held, "ORB downside breakout", self.instrument_key)
+            ]
         return []

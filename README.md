@@ -47,6 +47,14 @@ Tests are fully offline and do not require Upstox credentials:
 pytest
 ```
 
+The same checks used by CI can be run locally:
+
+```bash
+ruff check .
+mypy .
+pytest -v
+```
+
 The implemented slices currently include the read-only data layer, strategy
 contract, SMA crossover, RSI mean-reversion, VWAP reversion, ORB, and Bollinger
 strategies, backtest engine, risk controls, and paper broker. Paper-trading

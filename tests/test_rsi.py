@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from data.models import Candle
 from strategies.base import Action, PortfolioContext, Signal
@@ -7,7 +7,7 @@ from strategies.rsi_reversion import RsiReversionStrategy
 
 def candle(close: float, day: int) -> Candle:
     return Candle(
-        datetime(2024, 1, day, tzinfo=timezone.utc),
+        datetime(2024, 1, day, tzinfo=UTC),
         close,
         close,
         close,

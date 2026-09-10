@@ -64,7 +64,9 @@ class RiskManager:
             signal.action is Action.BUY
             and signal.quantity > 0
             and not context.positions.get(signal.instrument_key, 0)
-            and len([quantity for quantity in context.positions.values() if quantity > 0])
+            and len(
+                [quantity for quantity in context.positions.values() if quantity > 0]
+            )
             >= self.limits.max_open_positions
         ):
             return RiskDecision(False, "max open positions reached")

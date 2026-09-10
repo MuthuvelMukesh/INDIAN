@@ -1,5 +1,5 @@
-from strategies.base import Action, PortfolioContext, Signal
 from risk.manager import RiskLimits, RiskManager
+from strategies.base import Action, PortfolioContext, Signal
 
 
 def test_risk_rejects_oversized_trade() -> None:

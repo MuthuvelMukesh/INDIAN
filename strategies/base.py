@@ -1,11 +1,11 @@
 """Provider- and broker-independent strategy contracts."""
 
 from abc import ABC, abstractmethod
+from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import Enum
 from math import isfinite
 from types import MappingProxyType
-from typing import Mapping
 
 from data.models import Candle
 

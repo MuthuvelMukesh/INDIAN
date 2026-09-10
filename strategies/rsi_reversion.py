@@ -1,6 +1,7 @@
 """RSI mean-reversion reference strategy."""
 
 from collections import deque
+from itertools import pairwise
 
 from data.models import Candle
 from strategies.base import Action, PortfolioContext, Signal, Strategy
@@ -43,7 +44,9 @@ class RsiReversionStrategy(Strategy):
         rsi = self._rsi(tuple(self._closes))
         held = context.positions.get(self.instrument_key, 0)
         if rsi < self.oversold and held == 0:
-            return [Signal(Action.BUY, self.quantity, "RSI oversold", self.instrument_key)]
+            return [
+                Signal(Action.BUY, self.quantity, "RSI oversold", self.instrument_key)
+            ]
         if rsi > self.overbought and held > 0:
             return [Signal(Action.SELL, held, "RSI overbought", self.instrument_key)]
         return []
@@ -51,7 +54,10 @@ class RsiReversionStrategy(Strategy):
     @staticmethod
     def _rsi(closes: tuple[float, ...]) -> float:
         """Calculate RSI using simple average gains and losses."""
-        changes = [current - previous for previous, current in zip(closes, closes[1:])]
+        changes = [
+            current - previous
+            for previous, current in pairwise(closes)
+        ]
         gains = [change for change in changes if change > 0]
         losses = [-change for change in changes if change < 0]
         average_gain = sum(gains) / len(changes)

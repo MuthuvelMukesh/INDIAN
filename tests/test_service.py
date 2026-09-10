@@ -1,4 +1,5 @@
-from datetime import date, datetime, timezone
+from collections.abc import Sequence
+from datetime import UTC, date, datetime
 
 from data.models import Candle, HistoricalQuery
 from data.service import MarketDataService
@@ -16,12 +17,12 @@ class FakeProvider:
 
 class MemoryCache:
     def __init__(self) -> None:
-        self.values = {}
+        self.values: dict[HistoricalQuery, list[Candle]] = {}
 
-    def get(self, query: HistoricalQuery):
+    def get(self, query: HistoricalQuery) -> list[Candle] | None:
         return self.values.get(query)
 
-    def put(self, query: HistoricalQuery, candles: list[Candle]) -> None:
+    def put(self, query: HistoricalQuery, candles: Sequence[Candle]) -> None:
         self.values[query] = list(candles)
 
 
@@ -29,7 +30,7 @@ def test_service_uses_cache_on_repeated_request() -> None:
     query = HistoricalQuery("NSE_EQ|ONE", date(2024, 1, 1), date(2024, 1, 2))
     candles = [
         Candle(
-            timestamp=datetime(2024, 1, 2, tzinfo=timezone.utc),
+            timestamp=datetime(2024, 1, 2, tzinfo=UTC),
             open=100.0,
             high=110.0,
             low=95.0,

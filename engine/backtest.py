@@ -1,16 +1,16 @@
 """Strategy-agnostic historical simulation engine."""
 
+from collections.abc import Iterable
 from dataclasses import dataclass
+from datetime import datetime, time, timedelta
+from itertools import pairwise
 from math import isfinite, sqrt
 from statistics import mean, pstdev
-from datetime import datetime, time, timedelta
-from typing import Iterable
 from zoneinfo import ZoneInfo
 
 from data.models import Candle
-from strategies.base import Action, PortfolioContext, Signal, Strategy
 from risk.manager import RiskManager
-
+from strategies.base import Action, PortfolioContext, Signal, Strategy
 
 # NSE regular equity hours are 09:15-15:30 IST: 375 minutes / 5 = 75 bars.
 # Using the existing 252-session daily convention gives 75 * 252 = 18,900.
@@ -84,7 +84,10 @@ class BacktestEngine:
             or slippage_bps < 0
             or type(periods_per_year) is not int
             or periods_per_year < 1
-            or (bar_minutes is not None and (type(bar_minutes) is not int or bar_minutes < 1))
+            or (
+                bar_minutes is not None
+                and (type(bar_minutes) is not int or bar_minutes < 1)
+            )
         ):
             raise ValueError("capital must be positive and costs must be non-negative")
         self.strategy = strategy
@@ -154,7 +157,9 @@ class BacktestEngine:
                 active_session = session_key
             for signal in pending:
                 if signal.instrument_key != instrument_key:
-                    raise ValueError("signal instrument does not match backtest instrument")
+                    raise ValueError(
+                        "signal instrument does not match backtest instrument"
+                    )
                 context = PortfolioContext(cash=cash, positions=positions)
                 if self.risk_manager is not None:
                     decision = self.risk_manager.evaluate(
@@ -176,7 +181,10 @@ class BacktestEngine:
             context = PortfolioContext(cash=cash, positions=positions)
             pending = tuple(self.strategy.on_data(candle, context))
             equity_curve.append(
-                EquityPoint(candle.timestamp, cash + positions.get(instrument_key, 0) * candle.close)
+                EquityPoint(
+                    candle.timestamp,
+                    cash + positions.get(instrument_key, 0) * candle.close,
+                )
             )
 
         equities = [point.equity for point in equity_curve]
@@ -249,7 +257,10 @@ class BacktestEngine:
     def _win_rate(trades: list[Trade]) -> float:
         """Calculate the fraction of completed exits with positive P&L."""
         exits = [trade for trade in trades if trade.realized_pnl is not None]
-        return sum(trade.realized_pnl > 0 for trade in exits) / len(exits) if exits else 0.0
+        wins = sum(
+            trade.realized_pnl > 0 for trade in exits if trade.realized_pnl is not None
+        )
+        return wins / len(exits) if exits else 0.0
 
     @staticmethod
     def _max_drawdown(equities: list[float]) -> float:
@@ -267,7 +278,7 @@ class BacktestEngine:
     ) -> float:
         """Annualize zero-risk-free returns for the candle frequency."""
         returns = []
-        for previous, current in zip(equity_curve, equity_curve[1:]):
+        for previous, current in pairwise(equity_curve):
             elapsed = current.timestamp - previous.timestamp
             if bar_minutes is not None and (
                 elapsed != timedelta(minutes=bar_minutes)

@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from data.models import Candle
 from strategies.base import Action, PortfolioContext, Signal
@@ -6,7 +6,7 @@ from strategies.bollinger import BollingerSqueezeStrategy
 
 
 def candle(day: int, close: float) -> Candle:
-    timestamp = datetime(2024, 1, day, 3, 45, tzinfo=timezone.utc)
+    timestamp = datetime(2024, 1, day, 3, 45, tzinfo=UTC)
     return Candle(timestamp, close, close, close, close, 100)
 
 

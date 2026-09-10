@@ -56,7 +56,11 @@ class SmaCrossoverStrategy(Strategy):
                     self.instrument_key,
                 )
             ]
-        if position > 0 and previous_short >= previous_long and current_short < current_long:
+        if (
+            position > 0
+            and previous_short >= previous_long
+            and current_short < current_long
+        ):
             return [
                 Signal(
                     Action.SELL,

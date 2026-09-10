@@ -6,7 +6,6 @@ from zoneinfo import ZoneInfo
 from data.models import Candle
 from strategies.base import Action, PortfolioContext, Signal, Strategy
 
-
 IST = ZoneInfo("Asia/Kolkata")
 NSE_OPEN = time(9, 15)
 NSE_CLOSE = time(15, 30)
@@ -61,7 +60,9 @@ class VwapReversionStrategy(Strategy):
         lower_band = vwap * (1 - self.deviation)
         upper_band = vwap * (1 + self.deviation)
         if candle.close <= lower_band and held == 0:
-            return [Signal(Action.BUY, self.quantity, "VWAP oversold", self.instrument_key)]
+            return [
+                Signal(Action.BUY, self.quantity, "VWAP oversold", self.instrument_key)
+            ]
         if candle.close >= upper_band and held > 0:
             return [Signal(Action.SELL, held, "VWAP overbought", self.instrument_key)]
         return []
